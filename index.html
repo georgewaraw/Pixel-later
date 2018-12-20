@@ -1,0 +1,915 @@
+
+<head >    <title > Pixel later </title >    <link rel = 'apple-touch-icon' href = 'jpg/icon.jpg' >
+    <meta name = 'viewport' >    <meta name = 'apple-mobile-web-app-capable' content = 'yes' >
+    <meta name = 'apple-mobile-web-app-status-bar-style' content = 'black-translucent' >    </head >
+
+<body style = 'margin : 0 ; background : black' onload = 'Setup (  )' >    <canvas > </canvas >
+    <script src = 'js/Three.js' > </script >    <script src = 'js/STLLoader.js' > </script >
+    <script src = 'js/CopyShader.js' > </script >    <script src = 'js/EffectComposer.js' > </script >
+    <script src = 'js/ShaderPass.js' > </script >    <script src = 'js/RenderPass.js' > </script >
+    <!--<script src = 'js/FlyControls.js' > </script >    <script src = 'js/Stats.js' > </script >-->
+    <script >
+
+    let screen , game , viewport , renderer , canvas , width , height , camera , cameraX , cameraY , cameraZ , scene ;
+
+    function Setup (  ) {
+
+        screen = { standalone : window . navigator . standalone , orientation : Orientation (  ) , pixelating : false ,
+            dark : false } ;
+
+        game = { playing : false , tutorial : false } ;
+
+
+        viewport = document . getElementsByTagName ( 'meta' ) [ 0 ] ;
+
+        if ( screen . standalone )    viewport . setAttribute (
+            'content' , 'viewport-fit = cover , width = device-height , initial-scale = .52' ) ;
+
+
+        renderer =
+            new THREE . WebGLRenderer ( { canvas : canvas = document . getElementsByTagName ( 'canvas' ) [ 0 ] } ) ;
+
+        renderer . setSize ( width = window . innerWidth , height = window . innerHeight ) ;
+
+        renderer . setClearColor ( 0xD1C4E9 ) ;  //  Deep Purple 100
+
+
+        camera = new THREE . PerspectiveCamera ( 90 , width / height , .5 , 107.4 ) ;
+
+        camera . position . set ( 0 , 10 , - 5 ) ;
+
+        cameraX = camera . position . x ;    cameraY = camera . position . y ;    cameraZ = camera . position . z ;
+
+
+        scene = new THREE . Scene (  ) ;
+
+
+        // Helpers (  ) ;
+            World (  ) ;    Filter (  ) ;    Input (  ) ;    Draw (  ) ;
+
+    }
+
+    function Orientation (  ) {
+
+        switch ( window . orientation ) {
+
+            case - 90 :    return 'landscape-right' ;
+
+            case 0 :    return 'portrait' ;
+
+            case 90 :    return 'landscape-left' ;
+
+        }
+
+    }
+
+
+    let font , orange , startup , tutorial , deathLeft , deathRight , skullLeft , skullRight , gun , door , corridor ;
+
+    function World (  ) {
+
+        let mesh ;    const purple = Material ( 'purple' ) ;    orange = Material (  ) ;
+
+
+
+        new THREE . FontLoader (  ) . load ( 'json/PressStart2P.json' , PressStart2P => {    font = PressStart2P ;
+
+            scene . add ( startup = new THREE . Group (  ) ) ;
+
+            startup . add ( mesh = Mesh ( Text ( 'Waraw\'s\n  Pixel\n later' , font ) , purple ) ) ;
+                mesh . position . set ( cameraX - 4.8 , cameraY + 9 , cameraZ - 15 ) ;
+                mesh . rotation . x = Math . PI * 30 / 180 ;
+
+            startup . add ( mesh = Mesh ( Text ( 'Play' , font ) , purple ) ) ;
+                mesh . position . set ( cameraX - 2.7 , cameraY - 7 , cameraZ - 10 ) ;
+                mesh . rotation . x = Math . PI * 330 / 180 ;
+
+
+            deathLeft = Mesh ( Text ( 'later' , font , .1 , .1 ) , orange ) ;
+                deathRight = Mesh ( Text ( 'later' , font , .1 , .1 ) , orange ) ;
+
+        } ) ;
+
+
+        tutorial = { text : '' , position : new THREE . Vector3 (  ) , mesh : null } ;
+
+        if ( ! screen . orientation )    {
+
+            tutorial . text = 'Shoot  : Left Click\n\nReload : Right Click\n         Force Touch\n         R Key\n\n' +
+                'Full   : F Key\nScreen' ;    tutorial . position . set ( cameraX - 7 , cameraY + 3 , cameraZ - 10 ) ;
+
+        }
+
+
+
+        skullLeft = { shader : null , mesh : null , shot : 0 , speed : 1 } ;
+            skullRight = { shader : null , mesh : null , shot : 0 , speed : 1 } ;
+
+        const uniforms = `
+
+            uniform bool uShot ;
+
+            uniform float uTime ;
+
+        ` ;
+
+        const vertexShader = `
+
+            vec3 transformed = vec3 ( position ) ;
+
+            if ( uShot )    transformed . z += sin ( ( uTime + position . z ) * 10. ) * .05 ;
+
+        ` ;
+
+        Model ( 'Skull' ) . then ( geometry => {
+
+            const material = Material (  ) ;    material . onBeforeCompile = shader => {
+
+                shader . uniforms . uShot = { value : false } ;    shader . uniforms . uTime = { value : 0 } ;
+
+                shader . vertexShader = uniforms + shader . vertexShader ;    shader . vertexShader =
+                    shader . vertexShader . replace ( '#include <begin_vertex>' , vertexShader ) ;
+
+                skullLeft . shader = shader ;
+
+            } ;
+
+            scene . add ( skullLeft . mesh = Mesh ( geometry , material , .005 ) ) ;
+                skullLeft . mesh . position . set ( cameraX , cameraY - .325 , cameraZ - 1 ) ;
+                skullLeft . mesh . rotation . set ( Math . PI * 270 / 180 , 0 , Math . PI * 345 / 180 ) ;
+
+        } ) ;
+
+        Model ( 'Skull' ) . then ( geometry => {
+
+            const material = Material (  ) ;    material . onBeforeCompile = shader => {
+
+                shader . uniforms . uShot = { value : false } ;    shader . uniforms . uTime = { value : 0 } ;
+
+                shader . vertexShader = uniforms + shader . vertexShader ;    shader . vertexShader =
+                    shader . vertexShader . replace ( '#include <begin_vertex>' , vertexShader ) ;
+
+                skullRight . shader = shader ;
+
+            } ;
+
+            skullRight . mesh = Mesh ( geometry , material , .005 ) ;
+                skullRight . mesh . position . set ( cameraX + 1 , cameraY , cameraZ - 15 ) ;
+                skullRight . mesh . rotation . set ( Math . PI * 270 / 180 , 0 , Math . PI * 345 / 180 ) ;
+
+        } ) ;
+
+
+
+        gun = { shader : null , mesh : null , reloading : false , shooting : false , ammo : 10 } ;
+
+        Model ( 'Gun' ) . then ( geometry => {
+
+            const material = Material ( 'purple' ) ;    material . onBeforeCompile = shader => {
+
+                shader . uniforms . uShoot = { value : false } ;    shader . uniforms . uTime = { value : 0 } ;
+
+                shader . vertexShader = `
+
+                    uniform bool uShoot ;
+
+                    uniform float uTime ;
+
+                ` + shader . vertexShader ;
+
+                shader . vertexShader = shader . vertexShader . replace ( '#include <begin_vertex>' , `
+
+                    vec3 transformed = vec3 ( position ) ;
+
+                    if ( uShoot )    transformed . z += sin ( ( uTime + position . z ) * 30. ) * .015 ;
+
+                ` ) ;
+
+                gun . shader = shader ;
+
+            } ;
+
+            gun . mesh = Mesh ( geometry , material , .005 ) ;
+                gun . mesh . position . set ( cameraX + .75 , cameraY - .5 , cameraZ - 1 ) ;
+                gun . mesh . rotation . set ( Math . PI * 270 / 180 , 0 , Math . PI * 120 / 180 ) ;
+
+        } ) ;
+
+
+
+        door = { mesh : null , opacity : 1 } ;
+
+        door . mesh = new THREE . Mesh ( new THREE . PlaneBufferGeometry ( 20 , 30 , .1 ) ,
+            new THREE . MeshLambertMaterial ( { color : 0xFFAB91 , transparent : true , opacity : door . opacity } ) ) ;
+              //  Deep Orange 200
+            door . mesh . position . set ( 0 , 15.5 , - 110 ) ;
+
+
+
+        corridor = new THREE . Group (  ) ;
+
+
+        const geometry = new THREE . BoxBufferGeometry ( 20 , 1 , 10 ) ;
+
+        for ( let z = - 120 ; z += 15 ; ) {
+            corridor . add ( mesh = Mesh ( geometry , orange ) ) ;    mesh . position . z = z ;    }
+
+
+        corridor . add ( mesh = Mesh ( new THREE . PlaneBufferGeometry ( 20 , 105 ) , orange ) ) ;
+            mesh . position . set ( 0 , - .5 , - 57.5 ) ;    mesh . rotation . x = Math . PI * 270 / 180 ;
+
+
+        corridor . add ( mesh = Mesh ( new THREE . BoxBufferGeometry ( 20 , 30 , 105 ) , orange ) ) ;
+            mesh . position . set ( 0 , 15.5 , - 57.5 ) ;
+
+
+
+        scene . add ( new THREE . AmbientLight ( 0xD1C4E9 ) ) ;  //  Deep Purple 100
+
+    }
+
+    const Material = color => {
+        return new THREE . MeshLambertMaterial ( { color : ( color === 'purple' ) ? '#512DA8' : '#FFAB91' } )    } ;
+          //  Deep Purple 700 , Deep Orange 200
+
+    const Text = ( text , font , size = 1 , height = 1 ) => {
+        return new THREE . TextBufferGeometry ( text , { font : font , size : size , height : height } )    } ;
+
+    const Mesh = ( geometry , material , scale = 1 ) => {    return new THREE . LineSegments (
+        new THREE . EdgesGeometry ( geometry . scale ( scale , scale , scale ) ) , material )    } ;
+
+    const Model = name => {
+        return new Promise ( geometry => new THREE . STLLoader (  ) . load ( `stl/${ name }.stl` , geometry ) )    } ;
+
+
+    let pass , composer ;
+
+    function Filter (  ) {
+
+        composer = new THREE . EffectComposer ( renderer ) ;
+
+        composer . addPass ( new THREE . RenderPass ( scene , camera ) ) ;
+
+        composer . addPass ( pass = new THREE . ShaderPass ( {
+
+            uniforms : { tDiffuse : { value : null } , uPixelSize : { value : 2 } ,
+                uResolution : { value : new THREE . Vector2 ( width , height ) } , uTime : { value : 0 } } ,
+
+            vertexShader : `
+
+                varying vec2 vUv ;
+
+                void main (  ) {
+
+                    vUv = uv ;
+
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4 ( position , 1. ) ;
+
+                }
+
+            ` ,
+
+            fragmentShader : `
+
+                uniform sampler2D tDiffuse ;
+
+                uniform float uPixelSize ;
+
+                uniform vec2 uResolution ;
+
+                uniform float uTime ;
+
+                varying vec2 vUv ;
+
+                float random ( vec2 uv ) {
+                    return fract ( sin ( dot ( uv , vec2 ( 12.9898 , 78.233 ) ) ) * 43758.5453123 ) ;    }
+
+                void main (  ) {
+
+                    vec4 pixelated = texture2D (
+                        tDiffuse , ( uPixelSize / uResolution ) * floor ( vUv / ( uPixelSize / uResolution ) ) ) ;
+
+                    vec4 noisy = pixelated * .9 + random ( vUv * ( sin ( uTime ) + 10. ) ) * .1 ;
+
+                    gl_FragColor =
+                        vec4 ( noisy . r , ( noisy . g + noisy . b ) * .5 , ( noisy . g + noisy . b ) * .5 , 1. ) ;
+
+                }
+
+            `
+
+        } ) ) ;    pass . renderToScreen = true ;
+
+    }
+
+
+    let mouseX , mouseY ;
+
+    function Input (  ) {
+
+        window . addEventListener ( 'resize' , Resize ) ;
+
+
+        window . addEventListener ( 'mousemove' , event => {    mouseX = event . clientX ;    mouseY = event . clientY ;
+
+            if ( ! gun . reloading && gun . mesh ) {
+                gun . mesh . rotation . z = Math . PI * 120 / 180 - mouseX / width + .25 ;
+                gun . mesh . rotation . x = Math . PI * 270 / 180 - mouseY * .5 / height + .25 ;    }
+
+            camera . rotation . y = mouseX * - .5 / width + .25 ;
+                camera . rotation . x = mouseY * - .5 / height + .25 ;
+
+        } ) ;
+
+
+        window . addEventListener ( 'mousedown' , Shoot ) ;
+
+
+        window . addEventListener ( 'webkitmouseforcedown' , Reload ) ;
+
+
+        window . addEventListener ( 'contextmenu' , event => {    event . preventDefault (  ) ;
+            Reload (  ) ;    } ) ;
+
+
+        window . addEventListener ( 'keydown' , event => {
+
+            switch ( event . code ) {
+
+                case 'KeyF' :    canvas . webkitRequestFullscreen (  ) ;    break ;
+
+                case 'KeyR' :    Reload (  ) ;
+
+            }
+
+        } ) ;
+
+
+
+        window . addEventListener ( 'deviceorientation' , Resize ) ;
+
+
+        let deviceX , deviceY , deviceZ ;
+
+        window . addEventListener ( 'devicemotion' , event => {    deviceX = event . accelerationIncludingGravity . x ;
+            deviceY = event . accelerationIncludingGravity . y ;    deviceZ = event . accelerationIncludingGravity . z ;
+
+            switch ( screen . orientation ) {
+
+                case 'portrait' :
+
+                    if ( ! gun . reloading ) {    gun . mesh . rotation . z = Math . PI * 120 / 180 + deviceX / 10 ;
+                        gun . mesh . rotation . x = Math . PI * 240 / 180 - deviceY / 10 ;    }
+
+                    camera . rotation . x = - deviceY / 50 ;    camera . rotation . y = deviceX / 50 ;
+
+                    break ;
+
+                case 'landscape-left' :
+
+                    if ( ! gun . reloading ) {
+                        gun . mesh . rotation . z = Math . PI * 120 / 180 - ( deviceY + 2.5 ) / 7.5 ;
+                        gun . mesh . rotation . x = Math . PI * 270 / 180 - ( deviceX + 5 ) / 10 ;    }
+
+                    camera . rotation . y = - deviceY / 50 ;    camera . rotation . x = - deviceX / 50 ;
+
+                    break ;
+
+                default :
+
+                    if ( ! gun . reloading ) {
+                        gun . mesh . rotation . z = Math . PI * 90 / 180 + ( deviceY + 2.5 ) / 7.5 ;
+                        gun . mesh . rotation . x = Math . PI * 210 / 180 + ( deviceX + 5 ) / 10 ;    }
+
+                    camera . rotation . y = deviceY / 50 ;    camera . rotation . x = deviceX / 50 ;
+
+            }
+
+        } ) ;
+
+
+        let startX , startY , endX , endY ;
+
+        window . addEventListener ( 'touchstart' , event => {    startX = event . changedTouches [ 0 ] . clientX ;
+            startY = event . changedTouches [ 0 ] . clientY ;    } ) ;
+
+        window . addEventListener ( 'touchend' , event => {    endX = event . changedTouches [ 0 ] . clientX ;
+            endY = event . changedTouches [ 0 ] . clientY ;
+
+            if ( Math . abs ( startY - endY ) < height / 10 )    Shoot (  ) ;    else    Reload (  ) ;
+
+        } ) ;
+
+
+        window . addEventListener ( 'touchforcechange' , event => {
+
+            if ( event . changedTouches [ 0 ] . force >= .5 ) {
+
+                if ( ! screen . standalone ) {
+
+                    if ( screen . orientation === 'portrait' )
+                        viewport . setAttribute ( 'content' , 'initial-scale = 0' ) ;
+
+                    else    viewport . setAttribute ( 'content' , 'viewport-fit = cover , initial-scale = .74' ) ;
+
+                } else    viewport . setAttribute ( 'content' , 'viewport-fit = contain , width = device-width' ) ;
+
+            }
+
+        } ) ;
+
+
+        canvas . addEventListener ( 'touchmove' , event =>    event . preventDefault (  )    ) ;
+
+    }
+
+    function Resize (  ) {
+
+        renderer . setSize ( width = window . innerWidth , height = window . innerHeight ) ;
+
+        camera . aspect = width / height ;    camera . updateProjectionMatrix (  ) ;
+
+        pass . uniforms . uResolution . value = new THREE . Vector2 ( width , height ) ;
+
+        composer . reset (  ) ;
+
+
+        if ( screen . orientation ) {    screen . orientation = Orientation (  ) ;
+
+            if ( screen . orientation === 'portrait' )
+                gun . mesh . position . set ( cameraX , cameraY - .5 , cameraZ - 1 ) ;    else
+                gun . mesh . position . set ( cameraX + .75 , cameraY - .5 , cameraZ - 1 ) ;
+
+
+            if ( ! game . playing ) {
+
+                if ( screen . orientation === 'portrait' ) {
+
+                    if ( screen . standalone ) {
+
+                        tutorial . text = 'aim with the\nACCELEROMETER\n\nTAP to shoot\n\n' +
+                            'SWIPE UP or\nDOWN to reload\n\nPRESS HARD to\nhide the notch' ;
+                            tutorial . position . set ( cameraX - 4.8 , cameraY + 4 , cameraZ - 11 ) ;
+
+                    } else {
+
+                        tutorial . text = 'aim with the\nACCELEROMETER\n\nTAP to shoot\n\n' +
+                            'SWIPE UP or DOWN\nto reload\n\nPRESS HARD if\nimage is blurry' ;
+                            tutorial . position . set ( cameraX - 5.5 , cameraY + 4 , cameraZ - 10 ) ;
+
+                    }
+
+                } else {
+
+                    if ( screen . standalone ) {
+
+                        tutorial . text = 'aim with the ACCELEROMETER\n\nTAP to shoot\n\n' +
+                            'SWIPE UP or DOWN to reload\n\nPRESS HARD to hide the notch' ;
+                            tutorial . position . set ( cameraX - 10 , cameraY + 2.5 , cameraZ - 6 ) ;
+
+                    } else {
+
+                        tutorial . text = 'aim with the ACCELEROMETER\n\nTAP to shoot\n\n' +
+                            'SWIPE UP or DOWN to reload\n\nPRESS HARD for full screen' ;
+                            tutorial . position . set ( cameraX - 9.3 , cameraY + 2.5 , cameraZ - 5 ) ;
+
+                    }
+
+                }
+
+            }
+
+        }
+
+    }
+
+    let skullLeftX , skullLeftY , skullLeftZ , skullRightX , skullRightY , skullRightZ ;
+
+    function Shoot (  ) {
+
+        if ( game . playing ) {
+
+            if ( game . tutorial ) {    game . tutorial = false ;
+
+                scene . remove ( tutorial . mesh ) ;
+
+                scene . add ( corridor ) ;    scene . add ( door . mesh ) ;    scene . add ( gun . mesh ) ;
+                    scene . add ( skullRight . mesh ) ;    scene . add ( skullLeft . mesh ) ;
+                    skullLeft . mesh . position . set ( cameraX - 1 , cameraY , cameraZ - 15 ) ;
+
+
+                Audio (  ) ;
+
+            } else {
+
+                if ( ! screen . pixelating && ! gun . reloading && ! gun . shooting ) {
+
+                    gun . shooting = gun . shader . uniforms . uShoot . value = true ;    setTimeout ( (  ) =>
+                        gun . shooting = gun . shader . uniforms . uShoot . value = false , 250 ) ;
+
+                    if ( gun . ammo !== 0 ) {    gun . ammo -- ;    screen . pixelating = true ;
+
+                        if ( ( screen . orientation !== 'portrait' && gun . mesh . rotation . z > 1.85 ) ||
+                            ( screen . orientation === 'portrait' && gun . mesh . rotation . z > 2 ) ) {
+
+                            if ( ++ skullLeft . shot < 2 ) {
+
+                                skullLeft . shader . uniforms . uShot . value = true ;    setTimeout ( (  ) =>
+                                    skullLeft . shader . uniforms . uShot . value = false , 350 ) ;
+
+                            } else {    skullLeft . shot = 0 ;
+
+                                scene . remove ( skullLeft . mesh ) ;
+
+                                skullLeftX = skullLeft . mesh . position . x ;
+                                    skullLeftY = skullLeft . mesh . position . y ;
+                                    skullLeftZ = skullLeft . mesh . position . z ;
+
+                                deathLeft . position . set ( skullLeftX - .35 , skullLeftY , skullLeftZ ) ;
+                                    scene . add ( deathLeft ) ;
+
+                                setTimeout ( (  ) => {
+
+                                    scene . remove ( deathLeft ) ;
+
+                                    skullLeft . mesh . position . set ( skullLeftX , skullLeftY , skullLeftZ ) ;
+                                        scene . add ( skullLeft . mesh ) ;
+
+
+                                    Play ( 'synth' ) ;
+
+                                } , 1000 ) ;
+
+                            }
+
+                        } else {
+
+                            if ( ++ skullRight . shot < 2 ) {
+
+                                skullRight . shader . uniforms . uShot . value = true ;    setTimeout ( (  ) =>
+                                    skullRight . shader . uniforms . uShot . value = false , 350 ) ;
+
+                            } else {    skullRight . shot = 0 ;
+
+                                scene . remove ( skullRight . mesh ) ;
+
+                                skullRightX = skullRight . mesh . position . x ;
+                                    skullRightY = skullRight . mesh . position . y ;
+                                    skullRightZ = skullRight . mesh . position . z ;
+
+                                deathRight . position . set ( skullRightX - .35 , skullRightY , skullRightZ ) ;
+                                    scene . add ( deathRight ) ;
+
+                                setTimeout ( (  ) => {
+
+                                    scene . remove ( deathRight ) ;
+
+                                    skullRight . mesh . position . set ( skullRightX , skullRightY , skullRightZ ) ;
+                                        scene . add ( skullRight . mesh ) ;
+
+
+                                    Play ( 'synth' ) ;
+
+                                } , 1000 ) ;
+
+                            }
+
+                        }
+
+
+                        Play ( 'drums' ) ;    Play ( 'bass' ) ;
+
+                    }
+
+                }
+
+            }
+
+        } else {    game . playing = game . tutorial = true ;
+
+            scene . remove ( startup ) ;    scene . remove ( skullLeft . mesh ) ;
+
+            tutorial . mesh = Mesh ( Text ( tutorial . text , font , .5 , .1 ) , orange ) ;
+                tutorial . mesh . position . set (
+                tutorial . position . x , tutorial . position . y , tutorial . position . z ) ;
+                scene . add ( tutorial . mesh ) ;
+
+        }
+
+    }
+
+    function Reload (  ) {
+
+        if ( ! gun . reloading ) {    gun . reloading = true ;
+
+            gun . ammo = 10 ;
+
+            setTimeout ( (  ) => {    gun . reloading = false ;
+
+                gun . mesh . rotation . z = Math . PI * 120 / 180 - mouseX / width + .25 ;
+                    gun . mesh . rotation . x = Math . PI * 270 / 180 - mouseY * .5 / height + .25 ;
+
+            } , 500 ) ;
+
+
+            Play ( 'vocals' ) ;
+
+        }
+
+    }
+
+    let keys ;
+
+    function Play ( sound ) {
+
+        if ( sound === 'drums' ) {
+
+            if ( Math . random (  ) < .25 ) {
+
+                keys = Object . keys ( drums ) ;
+
+                for ( let index = keys . length ; index -- ; )    drums [ keys [ index ] ] . setVolume ( 0 ) ;
+
+                switch ( Math . floor ( ( Math . random (  ) * 4 ) ) ) {
+
+                    case 0 :    drums [ 'drums0' ] . setVolume ( 1 ) ;    break ;
+
+                    case 1 :    drums [ 'drums1' ] . setVolume ( 1 ) ;    break ;
+
+                    case 2 :    drums [ 'drums2' ] . setVolume ( 1 ) ;    break ;
+
+                    default :    drums [ 'drums3' ] . setVolume ( 1 ) ;
+
+                }
+
+            }
+
+        }
+
+
+        if ( sound === 'bass' ) {
+
+            keys = Object . keys ( bass ) ;
+
+            for ( let index = keys . length ; index -- ; ) {
+
+                const key = keys [ index ] ;
+
+                if ( bass [ key ] . isPlaying )    bass [ key ] . stop (  ) ;
+
+            }
+
+            if ( screen . dark )    bass [ `bass${ Math . floor ( ( Math . random (  ) * 4 ) ) * 5 }` ] . play (  ) ;
+                else    bass [ `bass${ Math . floor ( ( Math . random (  ) * 4 ) ) * 2 }` ] . play (  ) ;
+
+        }
+
+
+        if ( sound === 'synth' ) {
+
+            keys = Object . keys ( synth ) ;
+
+            for ( let index = keys . length ; index -- ; ) {
+
+                const key = keys [ index ] ;
+
+                if ( synth [ key ] . isPlaying )    synth [ key ] . stop (  ) ;
+
+            }
+
+            if ( screen . dark )    synth [ `synth${ Math . floor ( ( Math . random (  ) * 4 ) ) * 5 }` ] . play (  ) ;
+                else    synth [ `synth${ Math . floor ( ( Math . random (  ) * 4 ) ) * 2 }` ] . play (  ) ;
+
+        }
+
+
+        if ( sound === 'vocals' ) {
+
+            if ( vocals0 . isPlaying )    vocals0 . stop (  ) ;    if ( vocals1 . isPlaying )    vocals1 . stop (  ) ;
+
+            if ( screen . dark )    vocals1 . play (  ) ;    else    vocals0 . play (  ) ;
+
+        }
+
+    }
+
+
+    let drums , bass , synth , chord0 , chord1 , vocals0 , vocals1 ;
+
+    function Audio (  ) {
+
+        const listener = new THREE . AudioListener (  ) ;    camera . add ( listener ) ;
+
+
+        keys = Object . keys ( drums = { drums0 : null , drums1 : null , drums2 : null , drums3 : null } ) ;
+
+        for ( let index = keys . length ; index -- ; ) {    const key = keys [ index ] ;
+
+            drums [ key ] = new THREE . Audio ( listener ) ;
+
+            Sound ( key ) . then ( buffer => {    drums [ key ] . setBuffer ( buffer ) ;
+
+                drums [ key ] . setLoop ( true ) ;    drums [ key ] . play (  ) ;
+
+                if ( index !== 0 )    drums [ key ] . setVolume ( 0 ) ;
+
+            } ) ;
+
+        }
+
+
+        keys = Object . keys ( bass = { bass0 : null , bass2 : null , bass4 : null , bass5 : null , bass6 : null ,
+            bass10 : null , bass15 : null } ) ;
+
+        for ( let index = keys . length ; index -- ; ) {    const key = keys [ index ] ;
+
+            bass [ key ] = new THREE . Audio ( listener ) ;
+
+            Sound ( key ) . then ( buffer =>    bass [ key ] . setBuffer ( buffer )    ) ;
+
+        }
+
+
+        keys = Object . keys ( synth = { synth0 : null , synth2 : null , synth4 : null , synth5 : null , synth6 : null ,
+            synth10 : null , synth15 : null } ) ;
+
+        for ( let index = keys . length ; index -- ; ) {    const key = keys [ index ] ;
+
+            synth [ key ] = new THREE . Audio ( listener ) ;
+
+            Sound ( key ) . then ( buffer =>    synth [ key ] . setBuffer ( buffer )    ) ;
+
+        }
+
+
+        chord0 = new THREE . Audio ( listener ) ;
+
+        Sound ( 'chord0' ) . then ( buffer => {    chord0 . setBuffer ( buffer ) ;
+
+            chord0 . setLoop ( true ) ;    chord0 . play (  ) ;    } ) ;
+
+        chord1 = new THREE . Audio ( listener ) ;
+
+        Sound ( 'chord1' ) . then ( buffer => {    chord1 . setBuffer ( buffer ) ;
+
+            chord1 . setLoop ( true ) ;    chord1 . play (  ) ;    chord1 . setVolume ( 0 ) ;    } ) ;
+
+
+        vocals0 = new THREE . Audio ( listener ) ;
+
+        Sound ( 'vocals0' ) . then ( buffer =>    vocals0 . setBuffer ( buffer )    ) ;
+
+        vocals1 = new THREE . Audio ( listener ) ;
+
+        Sound ( 'vocals1' ) . then ( buffer =>    vocals1 . setBuffer ( buffer )    ) ;
+
+    }
+
+    const Sound = name => {
+        return new Promise ( buffer =>    new THREE . AudioLoader (  ) . load ( `mp3/${ name }.mp3` , buffer ) )    } ;
+
+
+    function Draw ( time ) {
+
+        if ( skullLeft . shader && skullRight . shader && gun . shader )
+            skullLeft . shader . uniforms . uTime . value = skullRight . shader . uniforms . uTime . value =
+            gun . shader . uniforms . uTime . value = time / 1000 ;
+
+
+
+        if ( skullLeft . mesh && skullRight . mesh )
+            skullLeft . mesh . rotation . z = skullRight . mesh . rotation . z = Math . sin ( time / 1000 ) - .25 ;
+
+
+
+        if ( game . playing && ! game . tutorial ) {
+
+            skullLeft . mesh . position . z += .075 * skullLeft . speed ;
+
+            if ( skullLeft . mesh . position . z >= cameraZ ) {
+
+                skullLeft . mesh . position . z = cameraZ - 15 ;
+
+                skullLeft . speed = Math. random (  ) + .75 ;
+
+                skullLeft . shot = 0 ;
+
+            }
+
+
+            skullRight . mesh . position . z += .05 * skullRight . speed ;
+
+            if ( skullRight . mesh . position . z >= cameraZ ) {
+
+                skullRight . mesh . position . z = cameraZ - 15 ;
+
+                skullRight . speed = Math. random (  ) + .75 ;
+
+                skullRight . shot = 0 ;
+
+            }
+
+
+            if ( door . opacity > 0 ) {
+
+                if ( screen . dark )    door . mesh . material . opacity = door . opacity -= .002 ;
+                    else    door . mesh . material . opacity = door . opacity -= .001 ;
+
+            } else {
+
+                camera . position . z -= .75 ;    if ( camera . position . z < - 112.5 )    Transition (  ) ;
+
+                pass . uniforms . uPixelSize . value += .05 ;
+
+            }
+
+        }
+
+
+
+        if ( screen . pixelating ) {
+
+            pass . uniforms . uPixelSize . value += .2 ;
+
+            if ( pass . uniforms . uPixelSize . value > 8 ) {    screen . pixelating = false ;
+                pass . uniforms . uPixelSize . value = 2 ;    }
+
+        }
+
+
+
+        if ( gun . reloading )    gun . mesh . rotation . x += .5 ;
+
+
+
+        pass . uniforms . uTime . value = time / 1000 ;
+
+        composer . render (  ) ;
+
+
+
+        // controls . update ( clock . getDelta (  ) ) ;    stats . update (  ) ;
+
+
+
+        requestAnimationFrame ( Draw ) ;
+
+    }
+
+    function Transition (  ) {
+
+        if ( screen . dark ) {    screen . dark = false ;
+
+            renderer . setClearColor ( 0xD1C4E9 ) ;  //  Deep Purple 100
+
+
+            chord0 . setVolume ( 1 ) ;    chord1 . setVolume ( 0 ) ;
+
+
+            Reload (  ) ;
+
+        } else {    screen . dark = true ;
+
+            renderer . setClearColor ( 0x000 ) ;  //  Black
+
+
+            chord0 . setVolume ( 0 ) ;    chord1 . setVolume ( 1 ) ;
+
+
+            Reload (  ) ;
+
+        }
+
+
+        camera . position . z = cameraZ ;
+
+
+        skullLeft . mesh . position . z = skullRight . mesh . position . z = cameraZ - 15 ;
+
+
+        door . mesh . material . opacity = door . opacity = 1 ;
+
+
+        pass . uniforms . uPixelSize . value = 2 ;
+
+    }
+
+
+    // let controls , clock , stats ;
+    //
+    // function Helpers (  ) {
+    //
+    //     controls = new THREE . FlyControls ( camera ) ;
+    //
+    //     clock = new THREE . Clock (  ) ;
+    //
+    //
+    //     stats = new Stats (  ) ;
+    //
+    //     document . body . appendChild ( stats . dom ) ;
+    //
+    // }
+
+</script >  </body >
+
+<!--  ' Pixel later ' by George Waraw @ 12/19/18  -->
